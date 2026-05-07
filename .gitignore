@@ -1,0 +1,15 @@
+# Build output directory
+out/
+
+# RPM build artifacts
+*.rpm
+*.src.rpm
+
+# Build temporary files
+*.o
+*.ko
+*.mod.c
+.*.cmd
+.tmp_versions/
+Module.symvers
+modules.order
