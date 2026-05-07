@@ -1,0 +1,16 @@
+diff --git a/include/net/9p/client.h b/include/net/9p/client.h
+index 838a94218b59..6b39baec7571 100644
+--- a/include/net/9p/client.h
++++ b/include/net/9p/client.h
+@@ -124,6 +124,11 @@ struct p9_client {
+ 			bool privport;
+
+ 		} tcp;
++#if IS_ENABLED(CONFIG_NET_9P_VSOCK)
++		struct {
++			u16 port;
++		} vsock;
++#endif
+ 	} trans_opts;
+
+ 	struct idr fids;
