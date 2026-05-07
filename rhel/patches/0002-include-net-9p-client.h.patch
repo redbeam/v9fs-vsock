@@ -1,0 +1,14 @@
+--- a/include/net/9p/client.h	2026-03-03 23:10:03.000000000 +0000
++++ b/include/net/9p/client.h	2026-03-31 16:52:37.509688268 +0000
+@@ -118,6 +118,11 @@
+ 			bool privport;
+ 
+ 		} tcp;
++#if IS_ENABLED(CONFIG_NET_9P_VSOCK)
++		struct {
++			u16 port;
++		} vsock;
++#endif
+ 	} trans_opts;
+ 
+ 	struct idr fids;
