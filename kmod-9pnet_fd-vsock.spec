@@ -1,19 +1,14 @@
 # kmod RPM spec file for 9P transport module with vsock support
+# Builds for all available kernel-devel versions
 
 %define kmod_name 9pnet_fd-vsock
 %define kmod_driver_version 1.0
 %define kmod_rpm_release 1
 
-# Kernel version to build for (can be overridden with --define "kernel_version X.Y.Z")
-%{!?kernel_version: %define kernel_version 7.0.9-204%{?dist}}
-
-# Full kernel version including the architecture for use in file system paths
-%define kernel_version_full %{kernel_version}.%{_arch}
-
 # Disable debug package generation
 %global debug_package %{nil}
 
-Name:           kmod-%{kmod_name}-%{kernel_version}
+Name:           kmod-%{kmod_name}
 Version:        %{kmod_driver_version}
 Release:        %{kmod_rpm_release}%{?dist}
 Summary:        9P transport kernel module with vsock support
@@ -22,35 +17,80 @@ License:        GPLv3
 URL:            https://github.com/redbeam/v9fs-vsock
 Source0:        v9fs-vsock-%{version}.tar.gz
 
-BuildRequires:  kernel-devel = %{kernel_version}
-Requires:       kernel = %{kernel_version}
-Provides:       kmod-%{kmod_name}-%{kver} = %{kernel_version}
-
 BuildRequires:  redhat-rpm-config
+
+# Build for multiple kernel versions - manually update this list
+%if 0%{?fedora} == 44
+# BuildRequires:  kernel-devel = 6.19.10-300.fc44
+BuildRequires:  kernel-devel = 7.0.10-200.fc44
+%endif
+
+%if 0%{?fedora} == 43
+# BuildRequires:  kernel-devel = 6.17.1-300.fc43
+BuildRequires:  kernel-devel = 7.0.10-100.fc43
+%endif
+
+%if 0%{?rhel} == 10
+BuildRequires:  kernel-devel = 6.12.0-227.el10
+%endif
+
 %if 0%{?rhel} >= 8
 BuildRequires:  elfutils-libelf-devel
 %endif
 
-Requires(post):   /usr/sbin/depmod
-Requires(postun): /usr/sbin/depmod
-
-Provides:       kmod-%{kmod_name} = %{?epoch:%{epoch}:}%{version}-%{release}
-Provides:       kmod-9pnet = %{?epoch:%{epoch}:}%{version}-%{release}
+# Require at least one kernel-specific subpackage
+Requires:       kmod-%{kmod_name}-module
 
 %description
-This package provides the 9P transport kernel module with added vsock support.
-It enables mounting 9P filesystems over VM sockets (vsock) for efficient
-communication between virtual machines and their hosts, or between containers
-and hosts.
+This is a meta-package that automatically installs the 9P transport kernel
+module matching your currently installed kernel.
+
+The 9P transport module provides vsock support, enabling mounting 9P filesystems
+over VM sockets (vsock) for efficient communication between virtual machines and
+their hosts, or between containers and hosts.
 
 Mount syntax: mount -t 9p -o trans=vsock <CID> /mnt/point
 
+Install this package to get the appropriate kernel module for your system.
+
+# Generate subpackages for each kernel version found in /usr/src/kernels/
+%{expand:%(
+for kver in $(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\\.'); do
+  # Strip dist tag and arch from kernel version for package naming
+  # e.g., 7.0.9-204.fc44.x86_64 -> 7.0.9-204
+  kver_short=$(echo "$kver" | sed 's/\.[^.]*\.[^.]*$//')
+  cat <<EOF
+
+%%package -n kmod-%{kmod_name}-${kver_short}
+Summary: %{summary} for kernel ${kver}
+Group: System Environment/Kernel
+Provides: kmod-%{kmod_name} = %{?epoch:%{epoch}:}%{version}-%{release}
+Provides: kmod-%{kmod_name}-module = %{?epoch:%{epoch}:}%{version}-%{release}
+Provides: kmod-9pnet = %{?epoch:%{epoch}:}%{version}-%{release}
+Requires: kernel-core = ${kver}
+Requires(post): /usr/sbin/depmod
+Requires(postun): /usr/sbin/depmod
+Supplements: (kmod-%{kmod_name} and kernel-core = ${kver})
+
+%%description -n kmod-%{kmod_name}-${kver_short}
+This package provides the %{kmod_name} kernel module built for kernel ${kver}.
+
+%%post -n kmod-%{kmod_name}-${kver_short}
+/sbin/depmod -a ${kver} > /dev/null 2>&1 || :
+
+%%postun -n kmod-%{kmod_name}-${kver_short}
+/sbin/depmod -a ${kver} > /dev/null 2>&1 || :
+
+%%files -n kmod-%{kmod_name}-${kver_short}
+%%defattr(-,root,root,-)
+/lib/modules/${kver}/extra/%{kmod_name}/
+
+EOF
+done
+)}
+
 %prep
 %setup -q -n v9fs-vsock-%{version}
-
-%build
-kmod_kernel_dir=/usr/src/kernels/%{kernel_version_full}
-echo "Building against kernel headers at: $kmod_kernel_dir"
 
 # Choose the correct source directory based on distro
 %if 0%{?fedora}
@@ -61,15 +101,20 @@ echo "RHEL/EL build - using rhel/ sources"
 srcdir=rhel
 %endif
 
-# Build the module
-%{__make} %{?_smp_mflags} -C $kmod_kernel_dir M=%{_builddir}/v9fs-vsock-%{version}/$srcdir/net/9p \
-    CONFIG_NET_9P=m \
-    CONFIG_NET_9P_FD=m \
-    CONFIG_NET_9P_VSOCK=y \
-    modules
+# Create build directories for each kernel version
+for kver in $(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\\.'); do
+    echo "Preparing build directory for kernel ${kver}"
+    mkdir -p "_kmod_build_${kver}"
+    cp -r $srcdir/net "_kmod_build_${kver}/"
+done
 
-%install
-kmod_kernel_dir=/usr/src/kernels/%{kernel_version_full}
+%build
+echo "=========================================="
+echo "Building for multiple kernel versions"
+echo "=========================================="
+echo "Detected kernel versions:"
+ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' | while read kver; do echo "  - $kver"; done
+echo "=========================================="
 
 # Choose the correct source directory based on distro
 %if 0%{?fedora}
@@ -78,44 +123,68 @@ srcdir=linux
 srcdir=rhel
 %endif
 
-# Install the module
-%{__make} -C $kmod_kernel_dir M=%{_builddir}/v9fs-vsock-%{version}/$srcdir/net/9p \
-    INSTALL_MOD_PATH=%{buildroot} \
-    INSTALL_MOD_DIR=extra/%{kmod_name} \
-    CONFIG_NET_9P=m \
-    CONFIG_NET_9P_FD=m \
-    CONFIG_NET_9P_VSOCK=y \
-    modules_install
+for kver in $(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\\.'); do
+    kmod_kernel_dir="/usr/src/kernels/${kver}"
 
-# Remove unwanted files
-find %{buildroot} -name "*.cmd" -delete
-find %{buildroot} -name ".*.d" -delete
-rm -f %{buildroot}/lib/modules/%{kernel_version_full}/modules.*
+    echo "Building for kernel: ${kver}"
 
-# Sign modules if signing is configured
-%if 0%{?rhel} >= 8
-for module in $(find %{buildroot} -type f -name \*.ko); do
-    %{__strip} --strip-debug "$module"
+    %{__make} %{?_smp_mflags} -C "$kmod_kernel_dir" \
+        M="${PWD}/_kmod_build_${kver}/net/9p" \
+        CONFIG_NET_9P=m \
+        CONFIG_NET_9P_FD=m \
+        CONFIG_NET_9P_VSOCK=y \
+        modules
 done
+
+echo "=========================================="
+
+%install
+# Choose the correct source directory based on distro
+%if 0%{?fedora}
+srcdir=linux
+%else
+srcdir=rhel
 %endif
+
+for kver in $(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\\.'); do
+    kmod_kernel_dir="/usr/src/kernels/${kver}"
+
+    echo "Installing modules for kernel: ${kver}"
+
+    %{__make} -C "$kmod_kernel_dir" \
+        M="${PWD}/_kmod_build_${kver}/net/9p" \
+        INSTALL_MOD_PATH=%{buildroot} \
+        INSTALL_MOD_DIR=extra/%{kmod_name} \
+        CONFIG_NET_9P=m \
+        CONFIG_NET_9P_FD=m \
+        CONFIG_NET_9P_VSOCK=y \
+        modules_install
+
+    # Remove unwanted files
+    find %{buildroot} -name "*.cmd" -delete
+    find %{buildroot} -name ".*.d" -delete
+    rm -f %{buildroot}/lib/modules/${kver}/modules.*
+
+    # Sign modules if signing is configured
+    %if 0%{?rhel} >= 8
+    for module in $(find %{buildroot}/lib/modules/${kver} -type f -name \*.ko 2>/dev/null); do
+        %{__strip} --strip-debug "$module"
+    done
+    %endif
+done
 
 %clean
 rm -rf %{buildroot}
-
-%post
-/sbin/depmod -a > /dev/null 2>&1 || :
-
-%postun
-/sbin/depmod -a > /dev/null 2>&1 || :
 
 %files
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE
-/lib/modules/*/extra/%{kmod_name}/
 
 %changelog
-* Thu May 7 2026 Matus Skvarla <mskvarla@redhat.com> - 1.0-1
+* Tue May 26 2026 Matus Skvarla <mskvarla@redhat.com> - 1.0-1
+- Modified to build for all available kernel-devel versions
+- Creates separate subpackage for each kernel version
 - Initial kmod package for 9P vsock transport
 - Adds vsock transport support to 9pnet_fd module
 - Enables mounting 9P filesystems over VM sockets
