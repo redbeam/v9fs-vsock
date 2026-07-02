@@ -143,15 +143,17 @@ apply_patch() {
 
 # Apply/reverse patches in appropriate order
 if [ "$REVERSE" = true ]; then
-    # Reverse in opposite order (3, 2, 1)
-    apply_patch "1/3" "net/9p/trans_fd.c" "$SCRIPT_DIR/0003-net-9p-trans_fd.c.patch"
-    apply_patch "2/3" "include/net/9p/client.h" "$SCRIPT_DIR/0002-include-net-9p-client.h.patch"
-    apply_patch "3/3" "net/9p/Kconfig" "$SCRIPT_DIR/0001-net-9p-Kconfig.patch"
+    # Reverse in opposite order (4, 3, 2, 1)
+    apply_patch "1/4" "Documentation/filesystems/9p.rst" "$SCRIPT_DIR/0004-Documentation-filesystems-9p.rst.patch"
+    apply_patch "2/4" "net/9p/trans_fd.c" "$SCRIPT_DIR/0003-net-9p-trans_fd.c.patch"
+    apply_patch "3/4" "include/net/9p/client.h" "$SCRIPT_DIR/0002-include-net-9p-client.h.patch"
+    apply_patch "4/4" "net/9p/Kconfig" "$SCRIPT_DIR/0001-net-9p-Kconfig.patch"
 else
-    # Apply in normal order (1, 2, 3)
-    apply_patch "1/3" "net/9p/Kconfig" "$SCRIPT_DIR/0001-net-9p-Kconfig.patch"
-    apply_patch "2/3" "include/net/9p/client.h" "$SCRIPT_DIR/0002-include-net-9p-client.h.patch"
-    apply_patch "3/3" "net/9p/trans_fd.c" "$SCRIPT_DIR/0003-net-9p-trans_fd.c.patch"
+    # Apply in normal order (1, 2, 3, 4)
+    apply_patch "1/4" "net/9p/Kconfig" "$SCRIPT_DIR/0001-net-9p-Kconfig.patch"
+    apply_patch "2/4" "include/net/9p/client.h" "$SCRIPT_DIR/0002-include-net-9p-client.h.patch"
+    apply_patch "3/4" "net/9p/trans_fd.c" "$SCRIPT_DIR/0003-net-9p-trans_fd.c.patch"
+    apply_patch "4/4" "Documentation/filesystems/9p.rst" "$SCRIPT_DIR/0004-Documentation-filesystems-9p.rst.patch"
 fi
 
 echo ""
@@ -170,6 +172,7 @@ else
     echo "Successfully $ACTION_PAST patches:"
     if [ "$REVERSE" = true ]; then
         # In reverse mode, check which ones succeeded
+        [[ ! " ${FAILED_PATCHES[@]} " =~ " Documentation/filesystems/9p.rst " ]] && echo "  ✓ Documentation/filesystems/9p.rst"
         [[ ! " ${FAILED_PATCHES[@]} " =~ " net/9p/trans_fd.c " ]] && echo "  ✓ net/9p/trans_fd.c"
         [[ ! " ${FAILED_PATCHES[@]} " =~ " include/net/9p/client.h " ]] && echo "  ✓ include/net/9p/client.h"
         [[ ! " ${FAILED_PATCHES[@]} " =~ " net/9p/Kconfig " ]] && echo "  ✓ net/9p/Kconfig"
@@ -178,6 +181,7 @@ else
         [[ ! " ${FAILED_PATCHES[@]} " =~ " net/9p/Kconfig " ]] && echo "  ✓ net/9p/Kconfig"
         [[ ! " ${FAILED_PATCHES[@]} " =~ " include/net/9p/client.h " ]] && echo "  ✓ include/net/9p/client.h"
         [[ ! " ${FAILED_PATCHES[@]} " =~ " net/9p/trans_fd.c " ]] && echo "  ✓ net/9p/trans_fd.c"
+        [[ ! " ${FAILED_PATCHES[@]} " =~ " Documentation/filesystems/9p.rst " ]] && echo "  ✓ Documentation/filesystems/9p.rst"
     fi
 fi
 echo "==================================================================="
@@ -190,6 +194,7 @@ if [ "$REVERSE" = true ]; then
     echo "  - net/9p/Kconfig"
     echo "  - include/net/9p/client.h"
     echo "  - net/9p/trans_fd.c"
+    echo "  - Documentation/filesystems/9p.rst"
     echo ""
     echo "Backup files (.orig) have been created with the previous patched versions."
     echo ""

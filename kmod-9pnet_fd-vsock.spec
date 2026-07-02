@@ -102,7 +102,6 @@ srcdir=rhel
     M="${PWD}/$srcdir/net/9p" \
     CONFIG_NET_9P=m \
     CONFIG_NET_9P_FD=m \
-    CONFIG_NET_9P_VSOCK=y \
     modules
 
 %install
@@ -126,7 +125,6 @@ srcdir=rhel
     INSTALL_MOD_DIR=extra/%{kmod_name} \
     CONFIG_NET_9P=m \
     CONFIG_NET_9P_FD=m \
-    CONFIG_NET_9P_VSOCK=y \
     modules_install
 
 # Remove unwanted files

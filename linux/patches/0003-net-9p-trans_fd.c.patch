@@ -1,5 +1,5 @@
 diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
-index dbad3213ba84..0e6c4d7426e0 100644
+index dbad3213ba84..10a677f8cc53 100644
 --- a/net/9p/trans_fd.c
 +++ b/net/9p/trans_fd.c
 @@ -28,6 +28,9 @@
@@ -7,7 +7,7 @@ index dbad3213ba84..0e6c4d7426e0 100644
  #include <net/9p/client.h>
  #include <net/9p/transport.h>
 +#if IS_ENABLED(CONFIG_NET_9P_VSOCK)
-+#include <linux/vm_sockets.h>
++#include <uapi/linux/vm_sockets.h>
 +#endif
  
  #include <linux/syscalls.h> /* killme */
@@ -35,7 +35,16 @@ index dbad3213ba84..0e6c4d7426e0 100644
  	return 0;
  }
  
-@@ -968,6 +980,61 @@ p9_fd_create_unix(struct p9_client *client, struct fs_context *fc)
+@@ -875,7 +887,7 @@ p9_fd_create_tcp(struct p9_client *client, struct fs_context *fc)
+ 	const char *addr = fc->source;
+ 	struct v9fs_context *ctx = fc->fs_private;
+ 	int err;
+-	char port_str[6];
++	char port_str[11];
+ 	struct socket *csocket;
+ 	struct sockaddr_storage stor = { 0 };
+ 	struct p9_fd_opts opts;
+@@ -968,6 +980,66 @@ p9_fd_create_unix(struct p9_client *client, struct fs_context *fc)
  	return p9_socket_open(client, csocket);
  }
  
@@ -54,10 +63,15 @@ index dbad3213ba84..0e6c4d7426e0 100644
 +	/* opts are already parsed in context */
 +	opts = ctx->fd_opts;
 +
++	if (opts.privport) {
++		pr_err("%s (%d): privport not supported for vsock\n",
++		       __func__, task_pid_nr(current));
++		return -EOPNOTSUPP;
++	}
++
 +	if (!addr)
 +		return -EINVAL;
 +
-+	/* Parse the CID from the address */
 +	err = kstrtouint(addr, 10, &cid);
 +	if (err < 0) {
 +		pr_err("%s (%d): invalid CID: %s\n",
@@ -68,7 +82,7 @@ index dbad3213ba84..0e6c4d7426e0 100644
 +	csocket = NULL;
 +
 +	client->trans_opts.vsock.port = opts.port;
-+	err = __sock_create(current->nsproxy->net_ns, AF_VSOCK,
++	err = __sock_create(fc->net_ns, AF_VSOCK,
 +			    SOCK_STREAM, 0, &csocket, 1);
 +	if (err) {
 +		pr_err("%s (%d): problem creating socket\n",
@@ -92,12 +106,12 @@ index dbad3213ba84..0e6c4d7426e0 100644
 +
 +	return p9_socket_open(client, csocket);
 +}
-+#endif
++#endif /* CONFIG_NET_9P_VSOCK */
 +
  static int
  p9_fd_create(struct p9_client *client, struct fs_context *fc)
  {
-@@ -1038,6 +1105,23 @@ static struct p9_trans_module p9_fd_trans = {
+@@ -1038,6 +1110,23 @@ static struct p9_trans_module p9_fd_trans = {
  };
  MODULE_ALIAS_9P("fd");
  
@@ -121,7 +135,7 @@ index dbad3213ba84..0e6c4d7426e0 100644
  /**
   * p9_poll_workfn - poll worker thread
   * @work: work queue
-@@ -1075,6 +1159,9 @@ static int __init p9_trans_fd_init(void)
+@@ -1075,6 +1164,9 @@ static int __init p9_trans_fd_init(void)
  	v9fs_register_trans(&p9_tcp_trans);
  	v9fs_register_trans(&p9_unix_trans);
  	v9fs_register_trans(&p9_fd_trans);
@@ -131,7 +145,7 @@ index dbad3213ba84..0e6c4d7426e0 100644
  
  	return 0;
  }
-@@ -1085,6 +1172,9 @@ static void __exit p9_trans_fd_exit(void)
+@@ -1085,6 +1177,9 @@ static void __exit p9_trans_fd_exit(void)
  	v9fs_unregister_trans(&p9_tcp_trans);
  	v9fs_unregister_trans(&p9_unix_trans);
  	v9fs_unregister_trans(&p9_fd_trans);
