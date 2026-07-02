@@ -29,7 +29,7 @@
 #include <net/9p/client.h>
 #include <net/9p/transport.h>
 #if IS_ENABLED(CONFIG_NET_9P_VSOCK)
-#include <linux/vm_sockets.h>
+#include <uapi/linux/vm_sockets.h>
 #endif
 
 #include <linux/syscalls.h> /* killme */
@@ -887,7 +887,7 @@ p9_fd_create_tcp(struct p9_client *client, struct fs_context *fc)
 	const char *addr = fc->source;
 	struct v9fs_context *ctx = fc->fs_private;
 	int err;
-	char port_str[6];
+	char port_str[11];
 	struct socket *csocket;
 	struct sockaddr_storage stor = { 0 };
 	struct p9_fd_opts opts;
@@ -952,14 +952,12 @@ p9_fd_create_unix(struct p9_client *client, struct fs_context *fc)
 	if (!addr || !strlen(addr))
 		return -EINVAL;
 
-	if (strlen(addr) >= UNIX_PATH_MAX) {
+	sun_server.sun_family = PF_UNIX;
+	if (strscpy(sun_server.sun_path, addr) < 0) {
 		pr_err("%s (%d): address too long: %s\n",
 		       __func__, task_pid_nr(current), addr);
 		return -ENAMETOOLONG;
 	}
-
-	sun_server.sun_family = PF_UNIX;
-	strcpy(sun_server.sun_path, addr);
 	err = __sock_create(current->nsproxy->net_ns, PF_UNIX,
 			    SOCK_STREAM, 0, &csocket, 1);
 	if (err < 0) {
@@ -995,10 +993,15 @@ p9_fd_create_vsock(struct p9_client *client, struct fs_context *fc)
 	/* opts are already parsed in context */
 	opts = ctx->fd_opts;
 
+	if (opts.privport) {
+		pr_err("%s (%d): privport not supported for vsock\n",
+		       __func__, task_pid_nr(current));
+		return -EOPNOTSUPP;
+	}
+
 	if (!addr)
 		return -EINVAL;
 
-	/* Parse the CID from the address */
 	err = kstrtouint(addr, 10, &cid);
 	if (err < 0) {
 		pr_err("%s (%d): invalid CID: %s\n",
@@ -1009,7 +1012,7 @@ p9_fd_create_vsock(struct p9_client *client, struct fs_context *fc)
 	csocket = NULL;
 
 	client->trans_opts.vsock.port = opts.port;
-	err = __sock_create(current->nsproxy->net_ns, AF_VSOCK,
+	err = __sock_create(fc->net_ns, AF_VSOCK,
 			    SOCK_STREAM, 0, &csocket, 1);
 	if (err) {
 		pr_err("%s (%d): problem creating socket\n",
@@ -1033,7 +1036,7 @@ p9_fd_create_vsock(struct p9_client *client, struct fs_context *fc)
 
 	return p9_socket_open(client, csocket);
 }
-#endif
+#endif /* CONFIG_NET_9P_VSOCK */
 
 static int
 p9_fd_create(struct p9_client *client, struct fs_context *fc)

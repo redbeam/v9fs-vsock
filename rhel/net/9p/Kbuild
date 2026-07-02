@@ -1,0 +1,10 @@
+# Kbuild - out-of-tree build wrapper
+LINUXINCLUDE := -I$(src)/../../../rhel/include $(LINUXINCLUDE)
+ccflags-y += -DCONFIG_NET_9P_VSOCK
+
+CONFIG_NET_9P_XEN := n
+CONFIG_NET_9P_VIRTIO := n
+CONFIG_NET_9P_RDMA := n
+CONFIG_NET_9P_USBG := n
+
+include $(src)/Makefile

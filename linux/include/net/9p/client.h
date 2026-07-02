@@ -122,11 +122,10 @@ struct p9_client {
 		struct {
 			u16 port;
 			bool privport;
-
 		} tcp;
 #if IS_ENABLED(CONFIG_NET_9P_VSOCK)
 		struct {
-			u16 port;
+			u32 port;
 		} vsock;
 #endif
 	} trans_opts;
@@ -156,13 +155,13 @@ struct p9_client_opts {
  * struct p9_fd_opts - per-transport options for fd transport
  * @rfd: file descriptor for reading (trans=fd)
  * @wfd: file descriptor for writing (trans=fd)
- * @port: port to connect to (trans=tcp)
+ * @port: port to connect to (trans=tcp, trans=vsock)
  * @privport: port is privileged
  */
 struct p9_fd_opts {
 	int rfd;
 	int wfd;
-	u16 port;
+	u32 port;
 	bool privport;
 };
 
@@ -197,6 +196,7 @@ struct p9_rdma_opts {
  * @dfltgid: default numeric groupid to mount hierarchy as
  * @uid: if %V9FS_ACCESS_SINGLE, the numeric uid which mounted the hierarchy
  * @session_lock_timeout: retry interval for blocking locks
+ * @ndentry_timeout_ms: Negative dentry lookup cache retention time in ms
  *
  * This strucure holds options which are parsed and will be transferred
  * to the v9fs_session_info structure when mounted, and therefore largely
@@ -208,6 +208,7 @@ struct p9_session_opts {
 	unsigned short debug;
 	unsigned int afid;
 	unsigned int cache;
+	unsigned int ndentry_timeout_ms;
 #ifdef CONFIG_9P_FSCACHE
 	char *cachetag;
 #endif

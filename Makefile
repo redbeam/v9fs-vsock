@@ -23,15 +23,12 @@ linux: linux-9pnet_fd linux-9p
 linux-9pnet_fd:
 	@echo "Building 9pnet_fd transport module (linux) with vsock support"
 	$(MAKE) -C $(KDIR) M=$(PWD)/linux/net/9p \
-		'LINUXINCLUDE:=-I$(PWD)/linux/include $$(LINUXINCLUDE)' \
-		EXTRA_CFLAGS="-DCONFIG_NET_9P_VSOCK" \
 		CONFIG_NET_9P=m CONFIG_NET_9P_FD=m \
 		modules
 
 linux-9p:
 	@echo "Building 9p filesystem module (linux)"
 	$(MAKE) -C $(KDIR) M=$(PWD)/linux/fs/9p \
-		'LINUXINCLUDE:=-I$(PWD)/linux/include $$(LINUXINCLUDE)' \
 		CONFIG_9P_FS=m KBUILD_MODPOST_WARN=1 \
 		modules
 
@@ -41,15 +38,12 @@ rhel: rhel-9pnet_fd rhel-9p
 rhel-9pnet_fd:
 	@echo "Building 9pnet_fd transport module (rhel) with vsock support"
 	$(MAKE) -C $(KDIR) M=$(PWD)/rhel/net/9p \
-		'LINUXINCLUDE:=-I$(PWD)/rhel/include $$(LINUXINCLUDE)' \
-		EXTRA_CFLAGS="-DCONFIG_NET_9P_VSOCK" \
 		CONFIG_NET_9P=m CONFIG_NET_9P_FD=m \
 		modules
 
 rhel-9p:
 	@echo "Building 9p filesystem module (rhel)"
 	$(MAKE) -C $(KDIR) M=$(PWD)/rhel/fs/9p \
-		'LINUXINCLUDE:=-I$(PWD)/rhel/include $$(LINUXINCLUDE)' \
 		CONFIG_9P_FS=m KBUILD_MODPOST_WARN=1 \
 		modules
 
