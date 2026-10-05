@@ -120,7 +120,7 @@ struct p9_client {
 		} tcp;
 #if IS_ENABLED(CONFIG_NET_9P_VSOCK)
 		struct {
-			u16 port;
+			u32 port;
 		} vsock;
 #endif
 	} trans_opts;

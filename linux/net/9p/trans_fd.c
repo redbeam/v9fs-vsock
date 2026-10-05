@@ -994,7 +994,8 @@ p9_fd_create_vsock(struct p9_client *client, struct fs_context *fc)
 	opts = ctx->fd_opts;
 
 	if (opts.privport) {
-		pr_err("%s (%d): privport not supported for vsock\n",
+		// TODO: implement vsock privileged port binding
+		pr_err("%s (%d): privport currently not implemented for vsock\n",
 		       __func__, task_pid_nr(current));
 		return -EOPNOTSUPP;
 	}
