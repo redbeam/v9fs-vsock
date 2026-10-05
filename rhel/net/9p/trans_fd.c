@@ -47,14 +47,14 @@ static struct p9_trans_module p9_vsock_trans;
  * struct p9_fd_opts - per-transport options
  * @rfd: file descriptor for reading (trans=fd)
  * @wfd: file descriptor for writing (trans=fd)
- * @port: port to connect to (trans=tcp)
+ * @port: port to connect to (trans=tcp, trans=vsock)
  * @privport: port is privileged
  */
 
 struct p9_fd_opts {
 	int rfd;
 	int wfd;
-	u16 port;
+	u32 port;
 	bool privport;
 };
 
@@ -1108,6 +1108,13 @@ p9_fd_create_vsock(struct p9_client *client, const char *addr,
 	err = parse_opts(args, &opts);
 	if (err < 0)
 		return err;
+
+	if (opts.privport) {
+		// TODO: implement vsock privileged port binding
+		pr_err("%s (%d): privport currently not implemented for vsock\n",
+		       __func__, task_pid_nr(current));
+		return -EOPNOTSUPP;
+	}
 
 	if (!addr)
 		return -EINVAL;

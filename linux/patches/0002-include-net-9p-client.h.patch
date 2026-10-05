@@ -1,5 +1,5 @@
 diff --git a/include/net/9p/client.h b/include/net/9p/client.h
-index 838a94218b59..dfd2fc532e87 100644
+index 55c6cb54bd25..c0eca56c1f5f 100644
 --- a/include/net/9p/client.h
 +++ b/include/net/9p/client.h
 @@ -122,8 +122,12 @@ struct p9_client {
