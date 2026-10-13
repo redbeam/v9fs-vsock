@@ -37,10 +37,9 @@ Mount syntax: mount -t 9p -o trans=vsock <CID> /mnt/point
 
 Install this package to get the appropriate kernel module for your system.
 
-# Generate kernel-specific subpackage for the first available kernel-devel
+# Generate kernel-specific subpackages for all available kernel-devel installations
 %{expand:%(
-kver=$(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' | head -n1)
-if [ -n "$kver" ]; then
+for kver in $(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' ); do
   # Strip dist tag and arch from kernel version for package naming
   # e.g., 7.0.10-201.fc44.x86_64 -> 7.0.10-201
   kver_short=$(echo "$kver" | sed 's/\.[^.]*\.[^.]*$//')
@@ -74,20 +73,13 @@ This package provides the %{kmod_name} kernel module built for kernel ${kver}.
 /lib/modules/${kver}/extra/%{kmod_name}/
 
 EOF
-fi
+done
 )}
 
 %prep
 %setup -q -n v9fs-vsock-%{version}
 
 %build
-# Detect the installed kernel version
-kver=$(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' | head -n1)
-kmod_kernel_dir="/usr/src/kernels/${kver}"
-
-echo "Building for kernel: ${kver}"
-echo "Kernel headers at: ${kmod_kernel_dir}"
-
 # Choose the correct source directory based on distro
 %if 0%{?fedora}
 echo "Fedora build - using linux/ sources"
@@ -97,47 +89,54 @@ echo "RHEL/EL build - using rhel/ sources"
 srcdir=rhel
 %endif
 
-# Build the module
-%{__make} %{?_smp_mflags} -C "$kmod_kernel_dir" \
-    M="${PWD}/$srcdir/net/9p" \
-    CONFIG_NET_9P=m \
-    CONFIG_NET_9P_FD=m \
-    modules
+# Build the module for all installed kernels
+for kver in $(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' ); do
+    kmod_kernel_dir="/usr/src/kernels/${kver}"
+
+    echo "Building for kernel: ${kver}"
+    echo "Kernel headers at: ${kmod_kernel_dir}"
+
+    # Clean previous build artifacts
+    %{__make} -C "$kmod_kernel_dir" \
+        M="${PWD}/$srcdir/net/9p" \
+        clean || :
+
+    # Build the module
+    %{__make} %{?_smp_mflags} -C "$kmod_kernel_dir" \
+        M="${PWD}/$srcdir/net/9p" \
+        CONFIG_NET_9P=m \
+        CONFIG_NET_9P_FD=m \
+        modules
+
+    # Save the built module to a temporary location
+    mkdir -p "${PWD}/built-modules/${kver}"
+    cp -f "$srcdir/net/9p/"*.ko "${PWD}/built-modules/${kver}/"
+done
 
 %install
-# Detect the installed kernel version
-kver=$(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' | head -n1)
-kmod_kernel_dir="/usr/src/kernels/${kver}"
+# Install modules for all installed kernels
+for kver in $(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' ); do
+    echo "Installing modules for kernel: ${kver}"
 
-echo "Installing modules for kernel: ${kver}"
+    # Create module directory
+    mkdir -p "%{buildroot}/lib/modules/${kver}/extra/%{kmod_name}"
 
-# Choose the correct source directory based on distro
-%if 0%{?fedora}
-srcdir=linux
-%else
-srcdir=rhel
-%endif
+    # Copy the built modules from our temporary location
+    cp -f "${PWD}/built-modules/${kver}/"*.ko \
+        "%{buildroot}/lib/modules/${kver}/extra/%{kmod_name}/"
 
-# Install the module
-%{__make} -C "$kmod_kernel_dir" \
-    M="${PWD}/$srcdir/net/9p" \
-    INSTALL_MOD_PATH=%{buildroot} \
-    INSTALL_MOD_DIR=extra/%{kmod_name} \
-    CONFIG_NET_9P=m \
-    CONFIG_NET_9P_FD=m \
-    modules_install
+    # Sign modules if signing is configured
+    %if 0%{?rhel} >= 8
+    for module in $(find %{buildroot}/lib/modules/${kver} -type f -name \*.ko 2>/dev/null); do
+        %{__strip} --strip-debug "$module"
+    done
+    %endif
+done
 
 # Remove unwanted files
 find %{buildroot} -name "*.cmd" -delete
 find %{buildroot} -name ".*.d" -delete
-rm -f %{buildroot}/lib/modules/${kver}/modules.*
-
-# Sign modules if signing is configured
-%if 0%{?rhel} >= 8
-for module in $(find %{buildroot}/lib/modules/${kver} -type f -name \*.ko 2>/dev/null); do
-    %{__strip} --strip-debug "$module"
-done
-%endif
+find %{buildroot}/lib/modules -name "modules.*" -delete 2>/dev/null || :
 
 %clean
 rm -rf %{buildroot}
