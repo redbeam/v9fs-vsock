@@ -20,6 +20,12 @@ cp -r linux "$STAGEDIR/"
 cp -r rhel "$STAGEDIR/"
 cp README.md LICENSE "$STAGEDIR/" 2>/dev/null || true
 
+# Copy bundled kernels if they exist
+if [ -d "bundled-kernels" ]; then
+	echo "Including bundled kernel headers..."
+	cp -r bundled-kernels "$STAGEDIR/"
+fi
+
 # Create tarball
 echo "Creating tarball..."
 (cd "$OUTDIR" && tar czf "$PACKAGE_NAME-$VERSION.tar.gz" "$PACKAGE_NAME-$VERSION/")

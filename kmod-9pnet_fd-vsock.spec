@@ -4,6 +4,9 @@
 %define kmod_driver_version 1.0
 %define kmod_rpm_release 1
 
+# Kernel headers are bundled in the source tarball
+# Will auto-detect all bundled kernels during build
+
 # Disable debug package generation
 %global debug_package %{nil}
 
@@ -15,9 +18,13 @@ Group:          System Environment/Kernel
 License:        GPLv3
 URL:            https://github.com/redbeam/v9fs-vsock
 Source0:        v9fs-vsock-%{version}.tar.gz
+Source1:        kernel-versions.txt
+Source2:        bundled-kernels.tar.gz
 
-BuildRequires:  kernel-devel
+# Kernel headers are bundled in the source tarball - no kernel-devel needed!
 BuildRequires:  redhat-rpm-config
+BuildRequires:  make
+BuildRequires:  gcc
 %if 0%{?rhel} >= 8
 BuildRequires:  elfutils-libelf-devel
 %endif
@@ -37,17 +44,15 @@ Mount syntax: mount -t 9p -o trans=vsock <CID> /mnt/point
 
 Install this package to get the appropriate kernel module for your system.
 
-# Generate kernel-specific subpackage for the first available kernel-devel
+# Generate kernel-specific subpackages for all bundled kernels
+# This runs during spec parse time, reading from kernel-versions.txt
 %{expand:%(
-kver=$(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' | head -n1)
-if [ -n "$kver" ]; then
-  # Strip dist tag and arch from kernel version for package naming
-  # e.g., 7.0.10-201.fc44.x86_64 -> 7.0.10-201
-  kver_short=$(echo "$kver" | sed 's/\.[^.]*\.[^.]*$//')
-  # Strip only arch for kernel-core dependency
-  # e.g., 7.0.10-201.fc44.x86_64 -> 7.0.10-201.fc44
-  kver_noarch=$(echo "$kver" | sed 's/\.[^.]*$//')
-  cat <<EOF
+if [ -f "%{_sourcedir}/kernel-versions.txt" ]; then
+  for kver in $(cat %{_sourcedir}/kernel-versions.txt | grep -v '^\.' ); do
+    # Strip distribution tag and arch from kernel version for package naming
+    # e.g. 6.12.0-211.29.1.el10_2.x86_64 -> 6.12.0-211.29.1
+    kver_short=$(echo "$kver" | sed 's/\.el[0-9_]*\..*$//')
+    cat <<EOF
 
 %%package -n kmod-%{kmod_name}-${kver_short}
 Summary: %{summary} for kernel ${kver}
@@ -55,10 +60,10 @@ Group: System Environment/Kernel
 Provides: kmod-%{kmod_name} = %{?epoch:%{epoch}:}%{version}-%{release}
 Provides: kmod-%{kmod_name}-module = %{?epoch:%{epoch}:}%{version}-%{release}
 Provides: kmod-9pnet = %{?epoch:%{epoch}:}%{version}-%{release}
-Requires: kernel-core = ${kver_noarch}
+Requires: kernel-core-${kver}
 Requires(post): /usr/sbin/depmod
 Requires(postun): /usr/sbin/depmod
-Supplements: (kmod-%{kmod_name} and kernel-core = ${kver_noarch})
+Supplements: (kmod-%{kmod_name} and kernel-core-${kver})
 
 %%description -n kmod-%{kmod_name}-${kver_short}
 This package provides the %{kmod_name} kernel module built for kernel ${kver}.
@@ -74,20 +79,16 @@ This package provides the %{kmod_name} kernel module built for kernel ${kver}.
 /lib/modules/${kver}/extra/%{kmod_name}/
 
 EOF
+  done
 fi
 )}
 
 %prep
 %setup -q -n v9fs-vsock-%{version}
+# Extract bundled kernel headers
+tar xzf %{SOURCE2}
 
 %build
-# Detect the installed kernel version
-kver=$(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' | head -n1)
-kmod_kernel_dir="/usr/src/kernels/${kver}"
-
-echo "Building for kernel: ${kver}"
-echo "Kernel headers at: ${kmod_kernel_dir}"
-
 # Choose the correct source directory based on distro
 %if 0%{?fedora}
 echo "Fedora build - using linux/ sources"
@@ -97,47 +98,54 @@ echo "RHEL/EL build - using rhel/ sources"
 srcdir=rhel
 %endif
 
-# Build the module
-%{__make} %{?_smp_mflags} -C "$kmod_kernel_dir" \
-    M="${PWD}/$srcdir/net/9p" \
-    CONFIG_NET_9P=m \
-    CONFIG_NET_9P_FD=m \
-    modules
+# Build the module for all bundled kernels
+for kver in $(ls bundled-kernels/ 2>/dev/null | grep -v '^\.' ); do
+    kmod_kernel_dir="${PWD}/bundled-kernels/${kver}"
+
+    echo "Building for kernel: ${kver}"
+    echo "Kernel headers at: ${kmod_kernel_dir}"
+
+    # Clean previous build artifacts
+    %{__make} -C "$kmod_kernel_dir" \
+        M="${PWD}/$srcdir/net/9p" \
+        clean || :
+
+    # Build the module
+    %{__make} %{?_smp_mflags} -C "$kmod_kernel_dir" \
+        M="${PWD}/$srcdir/net/9p" \
+        CONFIG_NET_9P=m \
+        CONFIG_NET_9P_FD=m \
+        modules
+
+    # Save the built module to a temporary location
+    mkdir -p "${PWD}/built-modules/${kver}"
+    cp -f "$srcdir/net/9p/"*.ko "${PWD}/built-modules/${kver}/"
+done
 
 %install
-# Detect the installed kernel version
-kver=$(ls /usr/src/kernels/ 2>/dev/null | grep -v '^\.' | head -n1)
-kmod_kernel_dir="/usr/src/kernels/${kver}"
+# Install modules for all bundled kernels
+for kver in $(ls bundled-kernels/ 2>/dev/null | grep -v '^\.' ); do
+    echo "Installing modules for kernel: ${kver}"
 
-echo "Installing modules for kernel: ${kver}"
+    # Create module directory
+    mkdir -p "%{buildroot}/lib/modules/${kver}/extra/%{kmod_name}"
 
-# Choose the correct source directory based on distro
-%if 0%{?fedora}
-srcdir=linux
-%else
-srcdir=rhel
-%endif
+    # Copy the built modules from our temporary location
+    cp -f "${PWD}/built-modules/${kver}/"*.ko \
+        "%{buildroot}/lib/modules/${kver}/extra/%{kmod_name}/"
 
-# Install the module
-%{__make} -C "$kmod_kernel_dir" \
-    M="${PWD}/$srcdir/net/9p" \
-    INSTALL_MOD_PATH=%{buildroot} \
-    INSTALL_MOD_DIR=extra/%{kmod_name} \
-    CONFIG_NET_9P=m \
-    CONFIG_NET_9P_FD=m \
-    modules_install
+    # Sign modules if signing is configured
+    %if 0%{?rhel} >= 8
+    for module in $(find %{buildroot}/lib/modules/${kver} -type f -name \*.ko 2>/dev/null); do
+        %{__strip} --strip-debug "$module"
+    done
+    %endif
+done
 
 # Remove unwanted files
 find %{buildroot} -name "*.cmd" -delete
 find %{buildroot} -name ".*.d" -delete
-rm -f %{buildroot}/lib/modules/${kver}/modules.*
-
-# Sign modules if signing is configured
-%if 0%{?rhel} >= 8
-for module in $(find %{buildroot}/lib/modules/${kver} -type f -name \*.ko 2>/dev/null); do
-    %{__strip} --strip-debug "$module"
-done
-%endif
+find %{buildroot}/lib/modules -name "modules.*" -delete 2>/dev/null || :
 
 %clean
 rm -rf %{buildroot}
