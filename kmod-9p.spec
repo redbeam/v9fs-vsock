@@ -29,8 +29,15 @@ BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
 %endif
 
-# Meta-package requires kernel-specific subpackage
-Requires:       kmod-%{kmod_name}-module
+# Pull in the module subpackage for every installed kernel that has one
+%{expand:%(
+if [ -f "%{_sourcedir}/kernel-versions.txt" ]; then
+  for kver in $(grep -v '^\.' %{_sourcedir}/kernel-versions.txt); do
+    kver_short=$(echo "$kver" | sed 's/\.el[0-9_]*\..*$//')
+    echo "Requires: (kmod-%{kmod_name}-${kver_short} if kernel-core-uname-r = ${kver})"
+  done
+fi
+)}
 
 %description
 This is a meta-package that automatically installs the 9P filesystem kernel
@@ -63,13 +70,9 @@ if [ -f "%{_sourcedir}/kernel-versions.txt" ]; then
 %%package -n kmod-%{kmod_name}-${kver_short}
 Summary: %{summary} for kernel ${kver}
 Group: System Environment/Kernel
-Provides: kmod-%{kmod_name} = %{?epoch:%{epoch}:}%{version}-%{release}
-Provides: kmod-%{kmod_name}-module = %{?epoch:%{epoch}:}%{version}-%{release}
-Requires: kernel-core-${kver}
-Requires: kmod-9pnet
+Requires: kmod-9pnet_fd-vsock-${kver_short}
 Requires(post): /usr/sbin/depmod
 Requires(postun): /usr/sbin/depmod
-Supplements: (kmod-%{kmod_name} and kernel-core-${kver})
 
 %%description -n kmod-%{kmod_name}-${kver_short}
 This package provides the %{kmod_name} kernel module built for kernel ${kver}.

@@ -4,16 +4,22 @@ Kernel modules for 9P (Plan 9 Filesystem Protocol) with added VSOCK transport su
 
 ## Packages
 
+Each module is built for a set of bundled RHEL kernels (listed in `kernel-versions.txt`)
+and shipped as one metapackage plus one subpackage per kernel, e.g.
+`kmod-9p` and `kmod-9p-6.12.0-211.29.1`. Installing the metapackage pulls in the
+subpackages for all installed kernels that are in the bundled set; it never
+installs or upgrades a kernel. Installing a newer bundled kernel later pulls in
+its matching subpackage automatically.
+
 ### kmod-9pnet_fd-vsock
 Transport module providing:
 - Standard fd transport (rfdno/wfdno)
 - TCP transport  
 - **VSOCK transport** (new) - for VM sockets communication
 
-This package provides the `kmod-9pnet` virtual package.
-
 ### kmod-9p
-The 9P filesystem VFS layer. Requires a transport module (`kmod-9pnet` provider) to function.
+The 9P filesystem VFS layer. Each `kmod-9p-<kernel>` subpackage requires the
+`kmod-9pnet_fd-vsock-<kernel>` subpackage built for the same kernel.
 
 ## Usage
 
@@ -40,9 +46,12 @@ mount -t 9p -o trans=fd,rfdno=3,wfdno=4 mytag /mnt/shared
 # Enable the COPR repository
 dnf copr enable <your-username>/v9fs-vsock
 
-# Install both modules
-dnf install kmod-9pnet_fd-vsock kmod-9p
+# Install both modules (kmod-9p pulls in the matching transport module)
+dnf install kmod-9p
 ```
+
+If the installed kernel is not in the bundled set, only the metapackage is
+installed and no module is provided for that kernel.
 
 ## Building from Source
 
