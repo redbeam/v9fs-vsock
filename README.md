@@ -75,4 +75,4 @@ depmod -a
 
 ## License
 
-GPLv2 - See LICENSE file
+GPLv3 - See LICENSE file
