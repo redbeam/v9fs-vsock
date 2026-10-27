@@ -5,6 +5,10 @@ out/
 *.rpm
 *.src.rpm
 
+# Bundled kernel sources (provided separately, not stored in the repository)
+bundled-kernels.tar
+bundled-kernels/
+
 # Build temporary files
 *.o
 *.o.d
