@@ -6,7 +6,7 @@ set -e
 
 # Keep in sync with kmod_driver_version / kmod_rpm_release in the specfiles
 VERSION="1.0"
-RELEASE="1"
+RELEASE="2"
 OUTDIR="."
 PACKAGE_NAME="v9fs-vsock"
 SOURCE_NAME="$PACKAGE_NAME-$VERSION-$RELEASE"
