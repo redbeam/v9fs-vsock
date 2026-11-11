@@ -3,7 +3,7 @@
 %define kmod_name 9p
 # Keep in sync with VERSION / RELEASE in package-sources.sh
 %define kmod_driver_version 1.0
-%define kmod_rpm_release 1
+%define kmod_rpm_release 2
 
 # Builds for every kernel in bundled-kernels.tar (Source1)
 
@@ -160,6 +160,12 @@ rm -rf %{buildroot}
 %license LICENSE
 
 %changelog
+* Wed Nov 11 2026 Matus Skvarla <mskvarla@redhat.com> - 1.0-2
+- Rebase rhel/ sources onto kernel-6.12.0-264.9.1.el10_3
+- Rebase linux/ sources onto v7.3.3
+- Adapt to ->mkdir() returning a dentry, ->create() without the excl
+  argument, netfs_write_remote_i_size() and .mmap_prepare
+
 * Thu May 7 2026 Matus Skvarla <mskvarla@redhat.com> - 1.0-1
 - Initial kmod package for 9P filesystem module
 - Provides VFS layer for 9P filesystem
