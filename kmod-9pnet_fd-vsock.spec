@@ -1,6 +1,7 @@
 # kmod RPM spec file for 9P transport module with vsock support
 
 %define kmod_name 9pnet_fd-vsock
+# Keep in sync with VERSION / RELEASE in package-sources.sh
 %define kmod_driver_version 1.0
 %define kmod_rpm_release 1
 
@@ -14,7 +15,7 @@ Summary:        9P transport kernel module with vsock support
 Group:          System Environment/Kernel
 License:        GPLv3
 URL:            https://github.com/redbeam/v9fs-vsock
-Source0:        v9fs-vsock-%{version}.tar.gz
+Source0:        v9fs-vsock-%{version}-%{kmod_rpm_release}.tar.gz
 
 BuildRequires:  kernel-devel
 BuildRequires:  redhat-rpm-config
@@ -71,7 +72,7 @@ fi
 )}
 
 %prep
-%setup -q -n v9fs-vsock-%{version}
+%setup -q -n v9fs-vsock-%{version}-%{kmod_rpm_release}
 
 %build
 # Detect the installed kernel version
