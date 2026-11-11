@@ -1,0 +1,4 @@
+# Kernel source the 9p files in this directory were copied from
+# (before applying patches/), e.g. "linux-stable v7.1.4"
+fs/9p: linux v7.1
+net/9p, include/net/9p: linux v7.2

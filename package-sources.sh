@@ -4,14 +4,17 @@
 
 set -e
 
+# Keep in sync with kmod_driver_version / kmod_rpm_release in the specfiles
 VERSION="1.0"
+RELEASE="1"
 OUTDIR="."
 PACKAGE_NAME="v9fs-vsock"
+SOURCE_NAME="$PACKAGE_NAME-$VERSION-$RELEASE"
 
 echo "=== Packaging v9fs-vsock sources ==="
 
 # Create staging directory
-STAGEDIR="$OUTDIR/$PACKAGE_NAME-$VERSION"
+STAGEDIR="$OUTDIR/$SOURCE_NAME"
 mkdir -p "$STAGEDIR"
 
 # Copy sources
@@ -22,15 +25,15 @@ cp README.md LICENSE "$STAGEDIR/" 2>/dev/null || true
 
 # Create tarball
 echo "Creating tarball..."
-(cd "$OUTDIR" && tar czf "$PACKAGE_NAME-$VERSION.tar.gz" "$PACKAGE_NAME-$VERSION/")
+(cd "$OUTDIR" && tar czf "$SOURCE_NAME.tar.gz" "$SOURCE_NAME/")
 
 # Cleanup staging directory
 rm -rf "$STAGEDIR"
 
 echo ""
 echo "=== Summary ==="
-echo "Created: $OUTDIR/$PACKAGE_NAME-$VERSION.tar.gz"
-ls -lh "$OUTDIR/$PACKAGE_NAME-$VERSION.tar.gz"
+echo "Created: $OUTDIR/$SOURCE_NAME.tar.gz"
+ls -lh "$OUTDIR/$SOURCE_NAME.tar.gz"
 echo ""
 echo "This tarball is used by both:"
 echo "  - kmod-9pnet_fd-vsock.spec"

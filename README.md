@@ -36,6 +36,25 @@ live in separate branches:
 | `multibuild` | Every kernel source tree present in `/usr/src/kernels` at build time |
 | `multibuild-bundled-kernels` | Every kernel in `bundled-kernels.tar` (uncompressed, laid out as `bundled-kernels/<kernel>/`, not stored in the repository) |
 
+## Versioning
+
+`linux/` and `rhel/` are copies of the kernel's own 9p sources with the vsock
+patches applied, so they must match the kernel APIs of the target kernels.
+
+- **Version** (e.g. `1.0`) reflects the vsock patch itself and is bumped only
+  when the patch changes. Release then starts again at `1`.
+- **Release** (e.g. `1.0-2`) is bumped when the 9p sources are re-copied from
+  a newer kernel, or for packaging-only changes.
+- `linux/BASE` and `rhel/BASE` record the kernel source each tree was copied
+  from.
+- Each kernel base update is tagged on `master` as `v<version>-<release>`
+  (e.g. `v1.0-2`). To rebuild packages for older kernels, build from the tag
+  that matches them.
+
+Version and release are set in `package-sources.sh` (tarball name
+`v9fs-vsock-<version>-<release>.tar.gz`) and as `kmod_driver_version` /
+`kmod_rpm_release` in the specfiles; keep them in sync.
+
 ## Usage
 
 ### Mount using VSOCK (VM socket)
