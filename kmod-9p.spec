@@ -1,6 +1,7 @@
 # kmod RPM spec file for 9p filesystem module
 
 %define kmod_name 9p
+# Keep in sync with VERSION / RELEASE in package-sources.sh
 %define kmod_driver_version 1.0
 %define kmod_rpm_release 1
 
@@ -16,7 +17,7 @@ Summary:        9P filesystem kernel module
 Group:          System Environment/Kernel
 License:        GPLv3
 URL:            https://github.com/redbeam/v9fs-vsock
-Source0:        v9fs-vsock-%{version}.tar.gz
+Source0:        v9fs-vsock-%{version}-%{kmod_rpm_release}.tar.gz
 Source1:        bundled-kernels.tar
 
 # Kept uncompressed so listing it at parse time can seek past file contents;
@@ -87,7 +88,7 @@ EOF
 )}
 
 %prep
-%setup -q -n v9fs-vsock-%{version}
+%setup -q -n v9fs-vsock-%{version}-%{kmod_rpm_release}
 # Extract bundled kernel headers
 tar xf %{SOURCE1}
 
