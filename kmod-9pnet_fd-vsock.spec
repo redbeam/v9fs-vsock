@@ -3,7 +3,7 @@
 %define kmod_name 9pnet_fd-vsock
 # Keep in sync with VERSION / RELEASE in package-sources.sh
 %define kmod_driver_version 1.0
-%define kmod_rpm_release 1
+%define kmod_rpm_release 2
 
 # Builds for every kernel source tree present in /usr/src/kernels
 
@@ -145,6 +145,11 @@ rm -rf %{buildroot}
 %license LICENSE
 
 %changelog
+* Wed Nov 11 2026 Matus Skvarla <mskvarla@redhat.com> - 1.0-2
+- Rebase rhel/ sources onto kernel-6.12.0-264.9.1.el10_3
+- Rebase linux/ sources onto v7.3.3
+- No changes to net/9p (identical in both new bases)
+
 * Thu May 7 2026 Matus Skvarla <mskvarla@redhat.com> - 1.0-1
 - Initial kmod package for 9P vsock transport
 - Adds vsock transport support to 9pnet_fd module
